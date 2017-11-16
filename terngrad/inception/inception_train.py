@@ -31,6 +31,7 @@ from inception import image_processing
 from inception import inception_model as inception
 from inception.slim import slim
 import inception.bingrad_common as bingrad_common
+import inception.pruning_common as pruning_common
 
 FLAGS = tf.app.flags.FLAGS
 
@@ -80,6 +81,11 @@ tf.app.flags.DEFINE_string('learning_rate_decay_type','exponential',
     'Specifies how the learning rate is decayed. One of "fixed", "exponential",'
     ' or "polynomial"')
 
+# Configurations for Pruning
+tf.app.flags.DEFINE_bool('grad_pruning', True,
+                            """whether to prune gradient.""")
+tf.app.flags.DEFINE_float('pruning_percent', 0.01,
+                            """whether to prune gradient.""")
 # Configurations for BinGrad
 tf.app.flags.DEFINE_integer('grad_bits', 32,
                             """The number of gradient bits.""")
@@ -210,6 +216,16 @@ def _average_gradients(tower_grads):
     grad_and_var = (grad, v)
     average_grads.append(grad_and_var)
   return average_grads
+
+def _gradient_summary_float(grad_vars, name=""):
+  for grad, var in grad_vars:
+      #fjr look grad/var
+      eps = 2.22044604925e-16
+      tf.summary.histogram(var.op.name + "/" + name +'/gradients-var',
+              tf.div(grad, var+eps))
+      tf.summary.histogram(var.op.name + "/" + name +'/gradients', grad)
+      tf.summary.histogram(var.op.name + "/" + name +'/var', var)
+
 
 
 def _gradient_summary(grad_vars, name="", add_sparsity=False):
@@ -358,6 +374,20 @@ def train(dataset):
             #if FLAGS.weight_decay:
             #  reg_grads = opt.compute_gradients(reg_loss, tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope))
             #  tower_reg_grads.append(reg_grads)
+
+    for i in range(num_nodes):
+        with tf.device('/gpu:%d' % (i%FLAGS.num_gpus)):
+            _gradient_summary_float(tower_floating_grads[i], "floating")
+
+    if True == FLAGS.grad_pruning:
+        print('grad pruning')
+        for i in range(num_nodes):
+            with tf.device('/gpu:%d' % (i%FLAGS.num_gpus)):
+                with tf.name_scope('pruning_%d' % (i)) as scope:
+                    tower_grads[i][:] = pruning_common.pruning_gradients(tower_grads[i][:],
+                            FLAGS.pruning_percent, lr)
+
+
 
     if 1 == FLAGS.grad_bits:
       # for grads in tower_grads:

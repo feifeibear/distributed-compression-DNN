@@ -20,6 +20,14 @@ py_library(
 )
 
 py_library(
+    name = "pruning_common",
+    srcs = [
+        "pruning_common.py",
+    ],
+)
+
+
+py_library(
     name = "dataset",
     srcs = [
         "dataset.py",
@@ -166,6 +174,7 @@ py_library(
     ],
     deps = [
         ":bingrad_common",
+        ":pruning_common",
         ":image_processing",
         ":inception",
         ":models",
@@ -246,6 +255,7 @@ py_library(
     ],
     deps = [
         ":bingrad_common",
+        ":pruning_common",
         ":image_processing",
         ":inception",
         ":models",
@@ -259,6 +269,7 @@ py_library(
     ],
     deps = [
         ":bingrad_common",
+        ":pruning_common",
         ":image_processing",
         ":inception",
         ":models",

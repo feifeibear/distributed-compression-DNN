@@ -6,15 +6,17 @@ DATASET_NAME=cifar10 # imagenet or cifar10
 ROOT_WORKSPACE=${HOME}/dataset/results/cifar10/ # the location to store summary and logs
 DATA_DIR=${HOME}/dataset/${DATASET_NAME}-data # dataset location
 FINETUNED_MODEL_PATH=
-NUM_GPUS=2 # num of physical gpus
-export CUDA_VISIBLE_DEVICES=0,1 # specify visible gpus to tensorflow
-NUM_NODES=2 # num of virtual nodes on physical gpus
+NUM_GPUS=1 # num of physical gpus
+export CUDA_VISIBLE_DEVICES=0 # specify visible gpus to tensorflow
+NUM_NODES=1 # num of virtual nodes on physical gpus
 OPTIMIZER=adam
 NET=cifar10_alexnet
 IMAGE_SIZE=24
-GRAD_BITS=1
+#GRAD_BITS=1
+GRAD_BITS=32
 BASE_LR=0.0002
-CLIP_FACTOR=2.5 # 0.0 means no clipping
+#CLIP_FACTOR=2.5 # 0.0 means no clipping
+CLIP_FACTOR=0.0 # 0.0 means no clipping
 # when GRAD_BITS=1 and FLOATING_GRAD_EPOCH>0, switch to floating gradients every FLOATING_GRAD_EPOCH epoch and then switch back
 FLOATING_GRAD_EPOCH=0 # 0 means no switching
 WEIGHT_DECAY=0.004 # default - alexnet/vgg_a/vgg_16:0.0005, inception_v3:0.00004, cifar10_alexnet:0.004
@@ -28,9 +30,11 @@ NUM_EPOCHS_PER_DECAY=200
 MAX_STEPS=300000
 VAL_TOWER=0 # -1 for cpu
 EVAL_INTERVAL_SECS=10
-EVAL_DEVICE="/gpu:0" # specify the device to eval. e.g. "/gpu:1", "/cpu:0"
+EVAL_DEVICE="/cpu:0" # specify the device to eval. e.g. "/gpu:1", "/cpu:0"
 RESTORE_AVG_VAR=True # use the moving average parameters to eval?
 SEED=123 # use ${RANDOM} if no duplicable results are required
+PRUNE_FLAG=True
+PRUNE_PERCENT=0.5
 
 if [ ! -d "$ROOT_WORKSPACE" ]; then
   echo "${ROOT_WORKSPACE} does not exsit!"
@@ -45,9 +49,9 @@ if [ ! -d "${INFO_WORKSPACE}" ]; then
   mkdir -p ${INFO_WORKSPACE}
 fi
 current_time=$(date)
-current_time=${current_time// /_}
-current_time=${current_time//:/-}
-FOLDER_NAME=${DATASET_NAME}_${NET}_${IMAGE_SIZE}_${OPTIMIZER}_${GRAD_BITS}_${BASE_LR}_${CLIP_FACTOR}_${FLOATING_GRAD_EPOCH}_${WEIGHT_DECAY}_${MOMENTUM}_${SIZE_TO_BINARIZE}_${TRAIN_BATCH_SIZE}_${NUM_NODES}_${current_time}
+current_time=`echo ${current_time} | sed 's/\ /-/g' | sed 's/://g'` #${current_time// /_}
+#current_time=${current_time//:/-}
+FOLDER_NAME=${DATASET_NAME}_${NET}_${IMAGE_SIZE}_${OPTIMIZER}_${GRAD_BITS}_${BASE_LR}_${CLIP_FACTOR}_${FLOATING_GRAD_EPOCH}_${WEIGHT_DECAY}_${MOMENTUM}_${SIZE_TO_BINARIZE}_${TRAIN_BATCH_SIZE}_${NUM_NODES}_${PRUNE_PERCENT}_${PRUNE_FLAG}_${current_time}
 TRAIN_DIR=${TRAIN_WORKSPACE}/${FOLDER_NAME}
 EVAL_DIR=${EVAL_WORKSPACE}/${FOLDER_NAME}
 if [ ! -d "$TRAIN_DIR" ]; then
@@ -94,4 +98,6 @@ bazel-bin/inception/${DATASET_NAME}_train \
 --quantize_logits ${QUANTIZE_LOGITS} \
 --max_steps ${MAX_STEPS} \
 --train_dir ${TRAIN_DIR} \
---data_dir ${DATA_DIR} > ${INFO_WORKSPACE}/training_${FOLDER_NAME}_info.txt 2>&1 &
+--data_dir ${DATA_DIR} \
+--grad_pruning ${PRUNE_FLAG} \
+--pruning_percent ${PRUNE_PERCENT} > ${INFO_WORKSPACE}/training_${FOLDER_NAME}_info.txt 2>&1 &
