@@ -28,7 +28,7 @@ VAL_BATCH_SIZE=100 # set smaller to avoid OOM
 MAX_STEPS=10000
 VAL_TOWER=0 # -1 for cpu
 EVAL_INTERVAL_SECS=1 # seconds to evaluate the accuracy
-EVAL_DEVICE="/gpu:0" # specify the device to eval. e.g. "/gpu:1", "/cpu:0"
+EVAL_DEVICE="/cpu:0" # specify the device to eval. e.g. "/gpu:1", "/cpu:0"
 RESTORE_AVG_VAR=True # use the moving average parameters to eval?
 SEED=123 # use ${RANDOM} if no duplicable results are required
 
@@ -45,8 +45,9 @@ if [ ! -d "${INFO_WORKSPACE}" ]; then
   mkdir -p ${INFO_WORKSPACE}
 fi
 current_time=$(date)
-current_time=${current_time// /_}
-current_time=${current_time//:/-}
+current_time=`echo $current_time | sed 's/ //g'`  #${current_time// /_}
+current_time=`echo $current_time | sed 's/:/-/g'`  #${current_time// /_}
+#current_time=${current_time//:/-}
 FOLDER_NAME=${DATASET_NAME}_${NET}_${IMAGE_SIZE}_${OPTIMIZER}_${GRAD_BITS}_${BASE_LR}_${CLIP_FACTOR}_${FLOATING_GRAD_EPOCH}_${WEIGHT_DECAY}_${MOMENTUM}_${SIZE_TO_BINARIZE}_${TRAIN_BATCH_SIZE}_${NUM_NODES}_${current_time}
 TRAIN_DIR=${TRAIN_WORKSPACE}/${FOLDER_NAME}
 EVAL_DIR=${EVAL_WORKSPACE}/${FOLDER_NAME}
@@ -95,3 +96,5 @@ bazel-bin/inception/${DATASET_NAME}_train \
 --max_steps ${MAX_STEPS} \
 --train_dir ${TRAIN_DIR} \
 --data_dir ${DATA_DIR} > ${INFO_WORKSPACE}/training_${FOLDER_NAME}_info.txt 2>&1 &
+
+tail -f ${INFO_WORKSPACE}/training_${FOLDER_NAME}_info.txt

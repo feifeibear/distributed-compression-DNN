@@ -7,7 +7,7 @@ ROOT_WORKSPACE=${HOME}/dataset/results/cifar10/ # the location to store summary 
 DATA_DIR=${HOME}/dataset/${DATASET_NAME}-data # dataset location
 FINETUNED_MODEL_PATH=
 NUM_GPUS=1 # num of physical gpus
-export CUDA_VISIBLE_DEVICES=0 # specify visible gpus to tensorflow
+export CUDA_VISIBLE_DEVICES=2,3 # specify visible gpus to tensorflow
 NUM_NODES=1 # num of virtual nodes on physical gpus
 OPTIMIZER=adam
 NET=cifar10_alexnet
@@ -63,19 +63,19 @@ if [ ! -d "$EVAL_DIR" ]; then
   mkdir -p ${EVAL_DIR}
 fi
 
-bazel-bin/inception/${DATASET_NAME}_eval \
---eval_interval_secs ${EVAL_INTERVAL_SECS} \
---device ${EVAL_DEVICE} \
---restore_avg_var ${RESTORE_AVG_VAR} \
---data_dir ${DATA_DIR} \
---subset "test" \
---net ${NET} \
---image_size ${IMAGE_SIZE} \
---batch_size ${VAL_BATCH_SIZE} \
---max_steps ${MAX_STEPS} \
---checkpoint_dir ${TRAIN_DIR} \
---tower ${VAL_TOWER} \
---eval_dir ${EVAL_DIR} >  ${INFO_WORKSPACE}/eval_${FOLDER_NAME}_info.txt 2>&1 &
+#bazel-bin/inception/${DATASET_NAME}_eval \
+#--eval_interval_secs ${EVAL_INTERVAL_SECS} \
+#--device ${EVAL_DEVICE} \
+#--restore_avg_var ${RESTORE_AVG_VAR} \
+#--data_dir ${DATA_DIR} \
+#--subset "test" \
+#--net ${NET} \
+#--image_size ${IMAGE_SIZE} \
+#--batch_size ${VAL_BATCH_SIZE} \
+#--max_steps ${MAX_STEPS} \
+#--checkpoint_dir ${TRAIN_DIR} \
+#--tower ${VAL_TOWER} \
+#--eval_dir ${EVAL_DIR} >  ${INFO_WORKSPACE}/eval_${FOLDER_NAME}_info.txt 2>&1 &
 
 bazel-bin/inception/${DATASET_NAME}_train \
 --seed ${SEED}  \
@@ -100,4 +100,4 @@ bazel-bin/inception/${DATASET_NAME}_train \
 --train_dir ${TRAIN_DIR} \
 --data_dir ${DATA_DIR} \
 --grad_pruning ${PRUNE_FLAG} \
---pruning_percent ${PRUNE_PERCENT} > ${INFO_WORKSPACE}/training_${FOLDER_NAME}_info.txt 2>&1 &
+--pruning_percent ${PRUNE_PERCENT} #> ${INFO_WORKSPACE}/training_${FOLDER_NAME}_info.txt 2>&1 &

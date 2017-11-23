@@ -109,6 +109,8 @@ tf.app.flags.DEFINE_bool('benchmark_mode', False,
 RMSPROP_DECAY = 0.9                # Decay term for RMSProp.
 # RMSPROP_MOMENTUM = 0.9             # Momentum in RMSProp.
 RMSPROP_EPSILON = 1.0              # Epsilon term for RMSProp.
+#fjr size of grads
+GRADIENT_SIZE = 1068298
 
 
 def _tower_loss(images, labels, num_classes, scope, reuse_variables=None):
@@ -375,17 +377,33 @@ def train(dataset):
             #  reg_grads = opt.compute_gradients(reg_loss, tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope))
             #  tower_reg_grads.append(reg_grads)
 
-    for i in range(num_nodes):
-        with tf.device('/gpu:%d' % (i%FLAGS.num_gpus)):
-            _gradient_summary_float(tower_floating_grads[i], "floating")
+    #for i in range(num_nodes):
+    #    with tf.device('/gpu:%d' % (i%FLAGS.num_gpus)):
+    #        _gradient_summary_float(tower_floating_grads[i], "floating")
 
+
+    #fjr pruning gradients
+    residual_grads = tf.placeholder(dtype=tf.float32, shape=[num_nodes*GRADIENT_SIZE])
+    new_residual_grads = []
+    #need a size to slice residual_grads
+    print('residual_grads shape ', tf.shape(residual_grads))
     if True == FLAGS.grad_pruning:
         print('grad pruning')
         for i in range(num_nodes):
             with tf.device('/gpu:%d' % (i%FLAGS.num_gpus)):
                 with tf.name_scope('pruning_%d' % (i)) as scope:
-                    tower_grads[i][:] = pruning_common.pruning_gradients(tower_grads[i][:],
-                            FLAGS.pruning_percent, lr)
+                    #slice a reside_grads_per_node with size
+                    tower_grads[i][:], new_residual_grads_per_node = pruning_common.pruning_gradients(
+                            tower_grads[i][:],
+                            FLAGS.pruning_percent,
+                            residual_grads[i*GRADIENT_SIZE:(i+1)*GRADIENT_SIZE])
+                    new_residual_grads.append(new_residual_grads_per_node)
+                    _gradient_summary_float(tower_grads[i], "Pruning")
+                    print('Pruning %d is OK!' % (i))
+
+    #for i in range(num_nodes):
+    #    with tf.device('/gpu:%d' % (i%FLAGS.num_gpus)):
+    #        _gradient_summary_float(tower_grads[i], "Pruning")
 
 
 
@@ -572,9 +590,20 @@ def train(dataset):
         FLAGS.train_dir,
         graph=tf.get_default_graph())
 
+
+    #fjr initialize first gradient
+    #BUG! GRADIENT_SIZE just for cifar-alexnet
+    print('num_nodes ', num_nodes)
+    grad_size_per_node = GRADIENT_SIZE
+    prev_residual_grads = np.zeros(dtype = np.float32, shape = (GRADIENT_SIZE*num_nodes))
+
     for step in range(trained_step, FLAGS.max_steps):
       start_time = time.time()
-      _, entropy_loss_value, reg_loss_value = sess.run([train_op, entropy_loss, reg_loss])
+      _, entropy_loss_value, reg_loss_value, residual_grads_value = sess.run(
+              [train_op, entropy_loss, reg_loss, new_residual_grads],
+              feed_dict = {residual_grads : prev_residual_grads})
+      #fjr pack list of grads into a vector
+      # print('<<<<<< fjr debug : print residual_g rads_value in numpy <<<<<')
       duration = time.time() - start_time
 
       assert not np.isnan(entropy_loss_value), 'Model diverged with entropy_loss = NaN'
@@ -588,10 +617,22 @@ def train(dataset):
                             examples_per_sec, duration))
 
       if step % FLAGS.save_iter == 0:
-        summary_str = sess.run(summary_op)
+        #fjr
+        summary_str = sess.run(summary_op, feed_dict = {residual_grads : prev_residual_grads})
         summary_writer.add_summary(summary_str, step)
 
       # Save the model checkpoint periodically.
       if step % FLAGS.save_iter == 0 or (step + 1) == FLAGS.max_steps:
         checkpoint_path = os.path.join(FLAGS.train_dir, 'model.ckpt')
         saver.save(sess, checkpoint_path, global_step=step)
+
+      prev_residual_grads = np.empty(0, dtype = np.float32)
+      # no use in training, just use to set the global variable GRADIENT_SIZE
+      grad_size_per_node = 0
+      for gradvars_per_node in residual_grads_value:
+        grad_size_per_node = 0
+        for gradvar in gradvars_per_node:
+            prev_residual_grads = np.concatenate( (gradvar.flatten(), prev_residual_grads ))
+            grad_size_per_node += np.size(gradvar)
+
+
