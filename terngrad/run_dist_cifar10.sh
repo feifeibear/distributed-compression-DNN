@@ -5,6 +5,9 @@ PS=localhost
 WORKER1=localhost
 WORKER2=localhost
 
+DATASET_NAME=cifar10 # imagenet or cifar10
+DATA_DIR=${HOME}/dataset/${DATASET_NAME}-data # dataset location
+
 export CUDA_VISIBLE_DEVICES=1
 bazel-bin/inception/cifar10_distributed_train \
 --optimizer adam \
@@ -16,7 +19,7 @@ bazel-bin/inception/cifar10_distributed_train \
 --weight_decay 0.004 \
 --net cifar10_alexnet \
 --image_size 24 \
---data_dir="$HOME/dataset/cifar10-data-shard-500-999" \
+--data_dir=${DATA_DIR} \
 --job_name='worker' \
 --task_id=1 \
 --ps_hosts="$PS:2222" \
@@ -34,7 +37,7 @@ bazel-bin/inception/cifar10_distributed_train \
 --weight_decay 0.004 \
 --net cifar10_alexnet \
 --image_size 24 \
---data_dir="$HOME/dataset/cifar10-data-shard-0-499" \
+--data_dir=${DATA_DIR} \
 --job_name='worker' \
 --task_id=0 \
 --ps_hosts="$PS:2222" \

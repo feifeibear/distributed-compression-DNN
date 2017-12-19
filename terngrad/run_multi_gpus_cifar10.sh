@@ -6,9 +6,9 @@ DATASET_NAME=cifar10 # imagenet or cifar10
 ROOT_WORKSPACE=${HOME}/dataset/results/cifar10/ # the location to store summary and logs
 DATA_DIR=${HOME}/dataset/${DATASET_NAME}-data # dataset location
 FINETUNED_MODEL_PATH=
-NUM_GPUS=1 # num of physical gpus
+NUM_GPUS=2 # num of physical gpus
 export CUDA_VISIBLE_DEVICES=2,3 # specify visible gpus to tensorflow
-NUM_NODES=1 # num of virtual nodes on physical gpus
+NUM_NODES=2 # num of virtual nodes on physical gpus
 OPTIMIZER=adam
 NET=cifar10_alexnet
 IMAGE_SIZE=24
@@ -28,7 +28,7 @@ QUANTIZE_LOGITS=True # If quantize the gradients in the last logits layer.
 VAL_BATCH_SIZE=50 # set smaller to avoid OOM
 NUM_EPOCHS_PER_DECAY=200
 MAX_STEPS=300000
-VAL_TOWER=0 # -1 for cpu
+VAL_TOWER=1 # -1 for cpu
 EVAL_INTERVAL_SECS=10
 EVAL_DEVICE="/cpu:0" # specify the device to eval. e.g. "/gpu:1", "/cpu:0"
 RESTORE_AVG_VAR=True # use the moving average parameters to eval?
@@ -63,19 +63,19 @@ if [ ! -d "$EVAL_DIR" ]; then
   mkdir -p ${EVAL_DIR}
 fi
 
-#bazel-bin/inception/${DATASET_NAME}_eval \
-#--eval_interval_secs ${EVAL_INTERVAL_SECS} \
-#--device ${EVAL_DEVICE} \
-#--restore_avg_var ${RESTORE_AVG_VAR} \
-#--data_dir ${DATA_DIR} \
-#--subset "test" \
-#--net ${NET} \
-#--image_size ${IMAGE_SIZE} \
-#--batch_size ${VAL_BATCH_SIZE} \
-#--max_steps ${MAX_STEPS} \
-#--checkpoint_dir ${TRAIN_DIR} \
-#--tower ${VAL_TOWER} \
-#--eval_dir ${EVAL_DIR} >  ${INFO_WORKSPACE}/eval_${FOLDER_NAME}_info.txt 2>&1 &
+bazel-bin/inception/${DATASET_NAME}_eval \
+--eval_interval_secs ${EVAL_INTERVAL_SECS} \
+--device ${EVAL_DEVICE} \
+--restore_avg_var ${RESTORE_AVG_VAR} \
+--data_dir ${DATA_DIR} \
+--subset "test" \
+--net ${NET} \
+--image_size ${IMAGE_SIZE} \
+--batch_size ${VAL_BATCH_SIZE} \
+--max_steps ${MAX_STEPS} \
+--checkpoint_dir ${TRAIN_DIR} \
+--tower ${VAL_TOWER} \
+--eval_dir ${EVAL_DIR} >  ${INFO_WORKSPACE}/eval_${FOLDER_NAME}_info.txt 2>&1 &
 
 bazel-bin/inception/${DATASET_NAME}_train \
 --seed ${SEED}  \
@@ -100,4 +100,4 @@ bazel-bin/inception/${DATASET_NAME}_train \
 --train_dir ${TRAIN_DIR} \
 --data_dir ${DATA_DIR} \
 --grad_pruning ${PRUNE_FLAG} \
---pruning_percent ${PRUNE_PERCENT} #> ${INFO_WORKSPACE}/training_${FOLDER_NAME}_info.txt 2>&1 &
+--pruning_percent ${PRUNE_PERCENT} > ${INFO_WORKSPACE}/training_${FOLDER_NAME}_info.txt 2>&1 &
