@@ -54,7 +54,7 @@ tf.app.flags.DEFINE_boolean('log_device_placement', False,
 # Task ID is used to select the chief and also to access the local_step for
 # each replica to check staleness of the gradients in SyncReplicasOptimizer.
 tf.app.flags.DEFINE_integer(
-    'task_id', 0, 'Task ID of the worker/replica running the training.')
+    'task_index', 0, 'Task ID of the worker/replica running the training.')
 
 # More details can be found in the SyncReplicasOptimizer class:
 # tensorflow/python/training/sync_replicas_optimizer.py
@@ -129,10 +129,10 @@ def train(target, dataset, cluster_spec):
 
   # Choose worker 0 as the chief. Note that any worker could be the chief
   # but there should be only one chief.
-  is_chief = (FLAGS.task_id == 0)
+  is_chief = (FLAGS.task_index == 0)
 
   # Ops are assigned to worker by default.
-  with tf.device('/job:worker/task:%d' % FLAGS.task_id):
+  with tf.device('/job:worker/task:%d' % FLAGS.task_index):
     # Variables and its related init/assign ops are assigned to ps.
     with slim.scopes.arg_scope(
         [slim.variables.variable, slim.variables.global_step],
@@ -300,7 +300,10 @@ def train(target, dataset, cluster_spec):
 
       sess_config = tf.ConfigProto(
           allow_soft_placement=True,
-          log_device_placement=FLAGS.log_device_placement)
+          log_device_placement=FLAGS.log_device_placement,
+          inter_op_parallelism_threads=int(os.environ['NUM_INTER_THREADS']),
+          intra_op_parallelism_threads=int(os.environ['NUM_INTRA_THREADS'])
+          )
       sess_config.gpu_options.allow_growth = True
 
       # Get a session.
@@ -334,7 +337,7 @@ def train(target, dataset, cluster_spec):
             format_str = ('Worker %d: %s: step %d, loss = %.2f'
                           '(%.1f examples/sec; %.3f  sec/batch)')
             tf.logging.info(format_str %
-                            (FLAGS.task_id, datetime.now(), step, loss_value,
+                            (FLAGS.task_index, datetime.now(), step, loss_value,
                              examples_per_sec, duration))
 
           # Determine if the summary_op should be run on the chief worker.

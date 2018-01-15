@@ -50,7 +50,7 @@ def main(unused_args):
       {'ps': ps_hosts,
        'worker': worker_hosts},
       job_name=FLAGS.job_name,
-      task_index=FLAGS.task_id,
+      task_index=FLAGS.task_index,
       config=sess_config)
 
   if FLAGS.job_name == 'ps':
@@ -61,7 +61,7 @@ def main(unused_args):
     dataset = Cifar10Data(subset=FLAGS.subset)
     assert dataset.data_files()
     # Only the chief checks for or creates train_dir.
-    if FLAGS.task_id == 0:
+    if FLAGS.task_index == 0:
       if not tf.gfile.Exists(FLAGS.train_dir):
         tf.gfile.MakeDirs(FLAGS.train_dir)
     inception_distributed_train.train(server.target, dataset, cluster_spec)
